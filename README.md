@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# `private_chat`
 
-## Getting Started
+A private, temporary chat room app built with `Next.js 16`, `React 19`, `Elysia`, `Upstash Redis`, and `Upstash Realtime`.
 
-First, run the development server:
+Users create a room, share the link, and chat in real time with anonymous identities. Each room is limited to two participants and automatically expires after **10 minutes**.
+
+## ✨ Features
+
+- Create a secure room with a unique ID
+- Anonymous usernames generated and stored locally
+- Real-time message delivery
+- Two-user room limit
+- Auto-expiring room and message history
+- Cookie-based room access control
+- Minimal terminal-inspired UI
+
+## 🧱 Tech Stack
+
+| Layer               | Technology                   |
+| ------------------- | ---------------------------- |
+| App framework       | `Next.js 16`                 |
+| UI                  | `React 19`, `Tailwind CSS 4` |
+| API layer           | `Elysia` route handlers      |
+| State/data fetching | `@tanstack/react-query`      |
+| Storage             | `Upstash Redis`              |
+| Realtime events     | `@upstash/realtime`          |
+| Validation          | `zod`                        |
+
+## 🚀 Getting Started
+
+### 1. Install dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+bun install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configure environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env.local` file in the project root:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+UPSTASH_REDIS_REST_URL=your_upstash_redis_url
+UPSTASH_REDIS_REST_TOKEN=your_upstash_redis_token
+```
 
-## Learn More
+### 3. Start the development server
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bun run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🗂️ Main Flow
 
-## Deploy on Vercel
+1. Open the lobby and create a room
+2. Share the generated `/room/[roomId]` link
+3. A second user joins the room
+4. Messages sync in real time
+5. The room self-destructs when its TTL reaches zero
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📁 Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+src/
+  app/
+    page.tsx                 # Lobby / room creation screen
+    room/[roomId]/page.tsx   # Chat room UI
+    api/[[...slugs]]/route.ts# Elysia-backed API endpoints
+    api/realtime/route.ts    # Realtime endpoint
+  components/providers.tsx   # React Query + Realtime providers
+  hooks/use-username.ts      # Anonymous username generation
+  lib/redis.ts               # Upstash Redis client
+  lib/realtime.ts            # Realtime schema and event types
+  proxy.ts                   # Room access control and cookie setup
+```
+
+## 🔌 API Endpoints
+
+- `POST /api/room/create` — create a new room
+- `GET /api/room/ttl?roomId=...` — fetch remaining room lifetime
+- `GET /api/messages?roomId=...` — load message history
+- `POST /api/messages?roomId=...` — send a message
+- `GET /api/realtime` — realtime transport endpoint
+
+## 📝 Notes
+
+- Room metadata and messages are stored in Redis with expiration.
+- Access is guarded by an `x-auth-token` cookie per room.
+- The app is designed for short-lived, low-friction private chats.
