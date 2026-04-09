@@ -18,45 +18,71 @@ const rooms = new Elysia({ prefix: "/room" }).post("/create", async () => {
   return { roomId };
 });
 
-const messages = new Elysia({ prefix: "/messages" }).use(authMiddleware).post(
-  "/",
-  async ({ body, auth }) => {
-    const { roomId, token, connected } = auth;
-    const { sender, text } = body;
+const messages = new Elysia({ prefix: "/messages" })
+  .use(authMiddleware)
+  .post(
+    "/",
+    async ({ body, auth }) => {
+      const { roomId, token, connected } = auth;
+      const { sender, text } = body;
 
-    const roomExists = await redis.exists(`meta:${roomId}`);
-    if (!roomExists) {
-      throw new Error("Room does not exist.");
-    }
-    const message: Message = {
-      id: nanoid(),
-      sender,
-      text,
-      timestamp: Date.now(),
-      roomId,
-      token,
-    };
+      const roomExists = await redis.exists(`meta:${roomId}`);
+      if (!roomExists) {
+        throw new Error("Room does not exist.");
+      }
+      const message: Message = {
+        id: nanoid(),
+        sender,
+        text,
+        timestamp: Date.now(),
+        roomId,
+        token,
+      };
 
-    // add message to history
-    await redis.rpush(`messages:${roomId}`, { ...message, token: auth.token });
-    await realtime.channel(roomId).emit("chat.message", message);
+      // add message to history
+      await redis.rpush(`messages:${roomId}`, {
+        ...message,
+        token: auth.token,
+      });
+      await realtime.channel(roomId).emit("chat.message", message);
 
-    // housekeeping: remove old messages and expired rooms
-    const reaminningTTL = await redis.ttl(`meta:${roomId}`);
-    await redis.expire(`messages:${roomId}`, reaminningTTL);
-    await redis.expire(`history:${roomId}`, reaminningTTL);
-    await redis.expire(roomId, reaminningTTL);
-  },
-  {
-    query: z.object({
-      roomId: z.string(),
-    }),
-    body: z.object({
-      sender: z.string().max(100),
-      text: z.string().max(1000),
-    }),
-  },
-);
+      // housekeeping: remove old messages and expired rooms
+      const reaminningTTL = await redis.ttl(`meta:${roomId}`);
+      await redis.expire(`messages:${roomId}`, reaminningTTL);
+      await redis.expire(`history:${roomId}`, reaminningTTL);
+      await redis.expire(roomId, reaminningTTL);
+    },
+    {
+      query: z.object({
+        roomId: z.string(),
+      }),
+      body: z.object({
+        sender: z.string().max(100),
+        text: z.string().max(1000),
+      }),
+    },
+  )
+  .get(
+    "/",
+    async ({ auth }) => {
+      const messages = await redis.lrange<Message>(
+        `messages:${auth.roomId}`,
+        0,
+        -1,
+      );
+      return {
+        messages: messages.map((msg) => ({
+          ...msg,
+          token: auth.token === msg.token ? auth.token : undefined,
+        })),
+      };
+    },
+    {
+      query: z.object({
+        roomId: z.string(),
+      }),
+    },
+  );
 
 const app = new Elysia({ prefix: "/api" }).use(rooms).use(messages);
 
