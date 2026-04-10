@@ -108,7 +108,7 @@ const ChatRoom = () => {
     }, 2000);
   };
   return (
-    <main className='flex flex-col h-screen max-h-screen overflow-hidden'>
+    <main className='flex h-screen max-h-screen flex-col overflow-hidden bg-black text-zinc-100'>
       <header className='border-b border-zinc-800 p-4 flex items-center justify-between bg-zinc-900/30'>
         <div className='flex items-center gap-4'>
           <div className='flex flex-col'>
